@@ -1,68 +1,54 @@
 import React, { useState } from 'react';
-import { Wind, WaterLevel, Thermometer, Cloudy } from '@icon-park/react';
-import { useForm, FieldValues } from 'react-hook-form'; // Make sure to install react-hook-form
+import { useForm, FieldValues } from 'react-hook-form';
 import { fetchWithL402 } from "@getalby/lightning-tools";
 
-import WeatherCard from './weatherCard';
-
-interface WeatherData {
-    temperature: string;
-    conditionText: string;
-    iconUrl: string;
-    wind: string;
-    humidity: string;
-    feelsLike: string;
-    cloud: string;
+interface GeoLocationData {
+    ip: string;
+    continent_name: string;
+    country_name: string;
+    state_prov: string;
+    city: string;
+    latitude: string;
+    longitude: string;
+    isp: string;
+    country_flag: string;
 }
 
-const placeholder_weather: WeatherData = {
-    temperature: '',
-    conditionText: '',
-    iconUrl: 'http://cdn.weatherapi.com/weather/64x64/day/116.png',
-    wind: '',
-    humidity: '',
-    feelsLike: '',
-    cloud: '',
+const placeholder_geo: GeoLocationData = {
+    ip: '',
+    continent_name: '',
+    country_name: '',
+    state_prov: '',
+    city: '',
+    latitude: '',
+    longitude: '',
+    isp: '',
+    country_flag: '', // Default flag or a placeholder image URL
 };
 
-const CurrentWeather = () => {
-    const [weather, setWeather] = useState<WeatherData | null>(placeholder_weather);
+const IPGeolocation = () => {
+    const [geoData, setGeoData] = useState<GeoLocationData | null>(placeholder_geo);
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const { register, handleSubmit, formState } = useForm();
-    const [city, setCity] = useState<string>('Waterford, IE');
 
-
-    const fetchWeather = async (city: string) => {
+    const fetchGeoLocation = async (ip: string) => {
         try {
             setIsLoading(true);
-            const formatted_city = city.replace(/\s/g, '');
-            console.log(formatted_city)
-            const response = await fetchWithL402(`https://weatherman.ln.sulu.sh/current?city=${formatted_city}`,
+            const response = await fetchWithL402(`https://api.ipgeolocation.io/ipgeo?apiKey=YOUR_API_KEY&ip=${ip}`,
                 {},
-                { headerKey: "L402" })
-
-            const { current } = await response.json();
-
-            setWeather({
-                temperature: current.temp_c,
-                conditionText: current.condition.text,
-                iconUrl: current.condition.icon,
-                wind: `${current.wind_kph} kph`,
-                humidity: `${current.humidity}`,
-                feelsLike: current.feelslike_c,
-                cloud: `${current.cloud}`,
-            });
+                { headerKey: "L402" });
+            const data = await response.json();
+            setGeoData({ ...data });
         } catch (err) {
-            setError('Failed to fetch weather data');
+            setError('Failed to fetch geolocation data');
         } finally {
             setIsLoading(false);
         }
     };
 
     const onSubmit = (data: FieldValues) => {
-        setCity(data.cityInput);
-        fetchWeather(data.cityInput);
+        fetchGeoLocation(data.ipInput);
     };
 
     if (isLoading) {
@@ -73,62 +59,59 @@ const CurrentWeather = () => {
         return <div>Error: {error}</div>;
     }
 
-    return weather ? (
-        <div className="bg-white text-gray-800 p-6 rounded-2xl shadow-xl sm:p-4 md:p-6 lg:p-8">
-            <h2 className="text-2xl font-semibold mb-6">LN Weather</h2>
-            <form onSubmit={handleSubmit(onSubmit)} className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+    return geoData ? (
+        <div className="bg-white text-gray-800 p-6 rounded-2xl shadow-xl">
+            <h2 className="text-2xl font-semibold mb-6">IP Geolocation</h2>
+            <form onSubmit={handleSubmit(onSubmit)} className="mb-4">
                 <input
-                    {...register("cityInput")}
-                    name="cityInput"
-                    className="p-2 text-gray-700 border rounded shadow-inner mb-4 w-full sm:w-auto sm:mb-0"
-                    placeholder="Enter city"
-                    defaultValue={city}
+                    {...register("ipInput", { required: true, pattern: /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/ })}
+                    name="ipInput"
+                    className="p-2 text-gray-700 border rounded shadow-inner mb-4 w-full"
+                    placeholder="Enter IP address"
                 />
-                {formState.errors.cityInput && <p className="text-red-500">City is required.</p>}
-                <button type="submit" className="mx-auto block bg-blue-500 text-white p-2 rounded shadow w-full sm:w-auto sm:mx-0 sm:ml-4">
-                    Get Weather
+                {formState.errors.ipInput && <p className="text-red-500">Valid IP address is required.</p>}
+                <button type="submit" className="mx-auto block bg-blue-500 text-white p-2 rounded shadow w-full">
+                    Get Geolocation
                 </button>
             </form>
-            <div className="flex items-center justify-between mb-4">
-                <span className="font-medium">Temperature:</span>
-                <span className="font-bold text-lg">{weather.temperature}°C</span>
-            </div>
-            <div className="flex items-center justify-between mb-6 flex-col">
-                <div className="mb-2">
-                    <img src={weather.iconUrl} className="w-24 h-24 mr-2 text-gray-700" alt="weather icon" />
-                </div>
-                <div>
-                    <span className="font-medium">{weather.conditionText}</span>
-                </div>
-            </div>
-            <WeatherDetails weather={weather} />
+            <table className="w-full text-sm">
+                <tbody>
+                    <tr>
+                        <td>IP Address:</td>
+                        <td>{geoData.ip}</td>
+                    </tr>
+                    <tr>
+                        <td>Continent:</td>
+                        <td>{geoData.continent_name}</td>
+                    </tr>
+                    <tr>
+                        <td>Country:</td>
+                        <td><img src={geoData.country_flag} alt="Country flag" className="inline-block h-6 mr-2" />{geoData.country_name}</td>
+                    </tr>
+                    <tr>
+                        <td>State/Province:</td>
+                        <td>{geoData.state_prov}</td>
+                    </tr>
+                    <tr>
+                        <td>City:</td>
+                        <td>{geoData.city}</td>
+                    </tr>
+                    <tr>
+                        <td>Latitude:</td>
+                        <td>{geoData.latitude}</td>
+                    </tr>
+                    <tr>
+                        <td>Longitude:</td>
+                        <td>{geoData.longitude}</td>
+                    </tr>
+                    <tr>
+                        <td>ISP:</td>
+                        <td>{geoData.isp}</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     ) : null;
 };
 
-// Weather Details component
-interface WeatherDetailsProps {
-    weather: {
-        temperature: string;
-        conditionText: string;
-        wind: string;
-        humidity: string;
-        feelsLike: string;
-        cloud: string;
-    };
-}
-
-const WeatherDetails: React.FC<WeatherDetailsProps> = ({ weather }) => {
-    return (
-        <div>
-            <div className="grid grid-cols-2 gap-4">
-                <WeatherCard title="Wind" value={weather.wind} Icon={Wind} />
-                <WeatherCard title="Humidity" value={`${weather.humidity}%`} Icon={WaterLevel} />
-                <WeatherCard title="Real Feel" value={`${weather.feelsLike}°C`} Icon={Thermometer} />
-                <WeatherCard title="Cloud Cover" value={`${weather.cloud}%`} Icon={Cloudy} />
-            </div>
-        </div>
-    );
-};
-
-export default CurrentWeather;
+export default IPGeolocation;
